@@ -1,0 +1,41 @@
+name: Daily Update Japan & Taiwan Marriott Rates
+
+on:
+  schedule:
+    # 每天台灣時間早上 06:00 (UTC 22:00) 自動執行爬蟲更新
+    - cron: '0 22 * * *'
+  workflow_dispatch: # 允許在 GitHub Actions 網頁上手動一鍵觸發
+
+permissions:
+  contents: write
+
+concurrency:
+  group: marriott-daily-update
+  cancel-in-progress: false
+
+jobs:
+  update-rates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Fetch latest Japan (109) & Taiwan (26) Marriott rates and rebuild pages
+        env:
+          TZ: Asia/Taipei
+        run: |
+          python update_all.py
+
+      - name: Commit and push updated cache & HTML pages
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add marriott_japan_cache.json marriott_taiwan_cache.json index.html *.html *.md
+          git diff --staged --quiet || git commit -m "chore: auto-update JP & TW Marriott rates ($(TZ=Asia/Taipei date +'%Y-%m-%d %H:%M CST'))"
+          git push
